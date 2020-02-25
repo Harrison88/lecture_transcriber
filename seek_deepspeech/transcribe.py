@@ -1,5 +1,11 @@
 import argparse
 import sys
+import json
+
+import deepspeech
+from tqdm import tqdm
+
+from preprocess_audio import preprocess_audio
 
 
 def parse_args():
@@ -49,10 +55,37 @@ def parse_args():
     )
 
     args = parser.parse_args()
+    
+    return args
+
+
+def create_deepspeech_model(args):
+    deepspeech_model = deepspeech.Model(args.model, args.beam_width)
+    if args.trie and args.lm:
+        deepspeech_model.enableDecoderWithLM(args.lm, args.trie, args.lm_alpha, args.lm_beta)
+        
+    return deepspeech_model
 
 
 def main():
     args = parse_args()
+    
+    print("Loading DeepSpeech Model")
+    deepspeech_model = create_deepspeech_model(args)
+    
+    print("Preparing audio for transcription")
+    audio_files, audio_seconds = preprocess_audio(args.audio, deepspeech_model.sampleRate())
+    
+    print("Transcribing audio")
+    transcriptions = []
+    for audio in tqdm(audio_files):
+        transcription = deepspeech_model.stt(audio)
+        transcriptions.append(transcription)
+    
+    print("Outputting transcription")
+    json.dump(transcriptions, args.output)
+    
+    print("Done!")
     
 if __name__ == "__main__":
     main()
