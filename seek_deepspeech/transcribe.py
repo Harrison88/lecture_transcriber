@@ -5,7 +5,7 @@ import json
 import deepspeech
 from tqdm import tqdm
 
-from preprocess_audio import preprocess_audio
+import preprocess_audio
 
 
 def parse_args():
@@ -53,6 +53,8 @@ def parse_args():
     parser.add_argument(
         "--output", "-o", nargs="?", default=sys.stdout, type=argparse.FileType("w")
     )
+    
+    parser.add_argument("--no-split", action="store_true", help="Transcribe the audio file without splitting into segments")
 
     args = parser.parse_args()
     
@@ -73,8 +75,12 @@ def main():
     print("Loading DeepSpeech Model")
     deepspeech_model = create_deepspeech_model(args)
     
-    print("Preparing audio for transcription")
-    audio_files, audio_seconds = preprocess_audio(args.audio, deepspeech_model.sampleRate())
+    if not args.no_split:
+        print("Preparing audio for transcription")
+        audio_files, audio_seconds = preprocess_audio.preprocess_audio(args.audio, deepspeech_model.sampleRate())
+    else:
+        audio, audio_seconds = preprocess_audio.get_audiosegment(args.audio, deepspeech_model.sampleRate())
+        audio_files = preprocess_audio.audiosegments_to_np([audio])
     
     print("Transcribing audio")
     transcriptions = []
