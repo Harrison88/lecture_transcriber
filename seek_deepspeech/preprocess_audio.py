@@ -8,8 +8,8 @@ from tqdm import tqdm
 
 def preprocess_audio(audio_filepath, desired_framerate):
     audio, audio_seconds = get_audiosegment(audio_filepath, desired_framerate)
-    
-    split_audio = split_on_silence(audio)
+    threshold = determine_silence_threshold(audio)
+    split_audio = split_on_silence(audio, silence_thresh=threshold)
     split_audio = audiosegments_to_np(split_audio)
     return split_audio, audio_seconds
 
@@ -18,7 +18,10 @@ def split_on_silence(audio, *, silence_thresh=-75):
     summed_duration = sum(audio.duration_seconds for audio in split_audio)
     print("Summed audio duration (seconds) after split:", summed_duration)
     print("Number of segments:", len(split_audio))
-    print("Average segment duration (seconds):", summed_duration / len(split_audio))
+    average_duration = summed_duration / len(split_audio)
+    min_duration = min(audio.duration_seconds for audio in split_audio)
+    max_duration = max(audio.duration_seconds for audio in split_audio)
+    print(f"Segment duration (seconds): {average_duration = }; {min_duration = }; {max_duration = }")
     return split_audio
 
 
@@ -56,7 +59,7 @@ def get_audiosegment(audio_filepath, desired_framerate):
     return audio, audio_seconds
 
 def audiosegments_to_np(audiosegments):
-    return [np.frombuffer(a._data, np.int16) for a in split_audio]
+    return [np.frombuffer(a._data, np.int16) for a in audiosegments]
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Prepare an audio file to be transcribed; outputs segments into directory")
