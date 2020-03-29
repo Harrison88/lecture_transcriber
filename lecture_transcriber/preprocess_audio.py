@@ -9,19 +9,39 @@ from tqdm import tqdm
 def preprocess_audio(audio_filepath, desired_framerate):
     audio, audio_seconds = get_audiosegment(audio_filepath, desired_framerate)
     threshold = determine_silence_threshold(audio)
-    split_audio = split_on_silence(audio, silence_thresh=threshold)
+    with tqdm(total=len(audio), unit="ms", miniters=1) as progress_bar:
+        split_audio = split_on_silence(audio, silence_thresh=threshold, progress_bar=progress_bar)
     split_audio = audiosegments_to_np(split_audio)
     return split_audio, audio_seconds
 
-def split_on_silence(audio, *, silence_thresh=-75):
-    split_audio = pydub.silence.split_on_silence(audio, silence_thresh=silence_thresh, min_silence_len=700)
-    summed_duration = sum(audio.duration_seconds for audio in split_audio)
-    print("Summed audio duration (seconds) after split:", summed_duration)
-    print("Number of segments:", len(split_audio))
-    average_duration = summed_duration / len(split_audio)
-    min_duration = min(audio.duration_seconds for audio in split_audio)
-    max_duration = max(audio.duration_seconds for audio in split_audio)
-    print(f"Segment duration (seconds): {average_duration = }; {min_duration = }; {max_duration = }")
+def split_on_silence(audio, *, min_silence_len=1500, silence_thresh=-75, progress_bar=None):
+    if min_silence_len < 300:
+        if progress_bar:
+            progress_bar.update(len(audio))
+        return [audio]
+    nonsilent_ranges = pydub.silence.detect_nonsilent(audio, min_silence_len=min_silence_len, silence_thresh=silence_thresh)
+    range_lengths = [r[1] - r[0] for r in nonsilent_ranges]
+    split_audio = []
+    previous_stop = 0
+    for start, stop in nonsilent_ranges:
+        end = True
+        skipped_silence = start - previous_stop
+        previous_stop = stop
+        
+        new_segment = audio[start:stop]
+        if new_segment.duration_seconds > 30:
+            end = False
+            new_len = min_silence_len - 200
+            smaller_split = split_on_silence(new_segment, min_silence_len=new_len, silence_thresh=silence_thresh, progress_bar=progress_bar)
+            split_audio.extend(smaller_split)
+        else:
+            split_audio.append(new_segment)
+            
+        if progress_bar and end:
+            progress_bar.update(skipped_silence + len(new_segment))
+        elif progress_bar:
+            progress_bar.update(skipped_silence)
+    
     return split_audio
 
 
@@ -75,7 +95,14 @@ def main():
     
     audio, audio_seconds = get_audiosegment(args.audio, args.framerate)
     threshold = determine_silence_threshold(audio)
-    split_audio = split_on_silence(audio, silence_thresh=threshold)
+    with tqdm(total=len(audio), unit="ms", miniters=1) as progress_bar:
+        split_audio = split_on_silence(audio, silence_thresh=threshold, progress_bar=progress_bar)
+    durations = [audio.duration_seconds for audio in split_audio]
+    largest = max(durations)
+    smallest = min(durations)
+    average = sum(durations) / len(durations)
+    print(f"{largest=}; {smallest=}; {average=}")
+    print("Duration before split:", audio_seconds, "Duration after split:", sum(durations))
     output_dir = Path(args.output_dir)
     for index, audio_segment in tqdm(enumerate(split_audio)):
         output_path = output_dir / f"{index}.wav"
