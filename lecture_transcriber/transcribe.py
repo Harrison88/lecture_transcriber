@@ -7,6 +7,10 @@ from tqdm import tqdm
 
 import preprocess_audio
 
+from deepsegment import DeepSegment as sbd
+
+segmenter = sbd("en")
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -68,6 +72,38 @@ def create_deepspeech_model(args):
         
     return deepspeech_model
 
+def words_from_metadata(metadata):
+    word = ""
+    word_list = []
+    word_start_time = 0
+    # Loop through each character
+    for i in range(0, metadata.num_items):
+        item = metadata.items[i]
+        # Append character to word if it's not a space
+        if item.character != " ":
+            word = word + item.character
+        # Word boundary is either a space or the last character in the array
+        if item.character == " " or i == metadata.num_items - 1:
+            word_duration = item.start_time - word_start_time
+
+            if word_duration < 0:
+                word_duration = 0
+
+            each_word = dict()
+            each_word["word"] = word
+            each_word["start_time"] = word_start_time
+            each_word["duration"] = word_duration
+
+            word_list.append(each_word)
+            # Reset
+            word = ""
+            word_start_time = 0
+        else:
+            if len(word) == 1:
+                # Log the start time of the new word
+                word_start_time = item.start_time
+
+    return word_list
 
 def main():
     args = parse_args()
@@ -75,18 +111,31 @@ def main():
     print("Loading DeepSpeech Model")
     deepspeech_model = create_deepspeech_model(args)
     
-    if not args.no_split:
-        print("Preparing audio for transcription")
-        audio_files, audio_seconds = preprocess_audio.preprocess_audio(args.audio, deepspeech_model.sampleRate())
-    else:
-        audio, audio_seconds = preprocess_audio.get_audiosegment(args.audio, deepspeech_model.sampleRate())
-        audio_files = preprocess_audio.audiosegments_to_np([audio])
-    
-    print("Transcribing audio")
-    transcriptions = []
-    for audio in tqdm(audio_files):
-        transcription = deepspeech_model.stt(audio)
-        transcriptions.append(transcription)
+    stream = deepspeech_model.createStream()
+    audiosegment, audio_seconds = preprocess_audio.get_audiosegment(args.audio, deepspeech_model.sampleRate())
+    chunks = preprocess_audio.RewindableChunker(audiosegment)
+    sentences = []
+    len_output = 0
+    for chunk in tqdm(chunks):
+        data = preprocess_audio.audiosegments_to_np([chunk])
+        deepspeech_model.feedAudioContent(stream, data[0])
+        output = deepspeech_model.intermediateDecode(stream).split()
+        if len(output) > len_output and len(output) > 1:
+            segments = segmenter.segment(" ".join(output[:-1]))
+            if len(segments) > 1:
+                sentences.append(segments[0])
+                metadata = deepspeech_model.finishStreamWithMetadata(stream)
+                words = words_from_metadata(metadata)
+                next = len(sum(segments[1:]).split()) + 2
+                word = words[-next]
+                end_ms = metadata.items[-1].start_time * 1000
+                ms = abs(((word["start_time"] + word["duration"]) * 1000) - end_ms) + 200
+                
+                chunks.rewind(int(ms))
+                stream = deepspeech_model.createStream()
+                len_output = 0
+            else:
+                len_output = len(output)
     
     print("Outputting transcription")
     json.dump(transcriptions, args.output)

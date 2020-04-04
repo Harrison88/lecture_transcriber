@@ -6,6 +6,33 @@ import numpy as np
 from tqdm import tqdm
 
 
+class RewindableChunker:
+    def __init__(self, audiosegment, size=50):
+        self.audiosegment = audiosegment
+        self.size = size
+        self.lower_bounds = range(0, len(audiosegment), size)
+        self.upper_bounds = range(size, len(audiosegment)+size, size)
+        self.current_index = 0
+    
+    def __iter__(self):
+        while self.current_index < len(self.lower_bounds):
+            lower_bound = self.lower_bounds[self.current_index]
+            upper_bound = self.upper_bounds[self.current_index]
+            yield self.audiosegment[lower_bound:upper_bound]
+            self.current_index += 1
+    
+    def rewind(self, ms):
+        iterations = (ms // self.size) + 1
+        self.current_index = self.current_index - iterations
+    
+    def __len__(self):
+        return len(self.lower_bounds)
+    
+    @property
+    def current_time(self):
+        return self.upper_bounds[self.current_index]
+
+
 def preprocess_audio(audio_filepath, desired_framerate):
     audio, audio_seconds = get_audiosegment(audio_filepath, desired_framerate)
     threshold = determine_silence_threshold(audio)
