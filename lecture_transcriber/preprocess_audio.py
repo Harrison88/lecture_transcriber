@@ -5,6 +5,8 @@ import pydub
 import numpy as np
 from tqdm import tqdm
 
+import subprocess
+import shlex
 
 class RewindableChunker:
     def __init__(self, audiosegment, size=50):
@@ -93,13 +95,25 @@ def determine_silence_threshold(audio):
     
     return threshold
 
+def convert_samplerate(audio, desired_sample_rate):
+    sox_cmd = f'sox --type raw --channels {audio.channels} --rate {audio.frame_rate} --bits {audio.sample_width * 8} --encoding signed-integer - --type raw --bits 16 --channels 1 --encoding signed-integer --endian little --compression 0.0 --no-dither - rate {desired_sample_rate} '
+    try:
+        output = subprocess.run(shlex.split(sox_cmd), input=audio._data, capture_output=True, check=True)
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError('SoX returned non-zero status: {}'.format(e.stderr))
+    except OSError as e:
+        raise OSError(e.errno, 'SoX not found, use {}hz files or install it: {}'.format(desired_sample_rate, e.strerror))
+
+    return output.stdout
 
 def get_audiosegment(audio_filepath, desired_framerate):
     audio_file = Path(audio_filepath)
     audio = pydub.AudioSegment.from_file(str(audio_filepath))
     
     print("Audio duration before framerate change:", audio.duration_seconds)
-    audio = audio.set_frame_rate(desired_framerate)
+    data = convert_samplerate(audio, desired_framerate)
+    del audio
+    audio = pydub.AudioSegment.from_file(data, format="raw", sample_width=2, channels=1, frame_rate=desired_framerate)
     audio_seconds = audio.duration_seconds
     print("Audio duration after change:", audio_seconds)
     
