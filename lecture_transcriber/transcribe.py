@@ -1,6 +1,10 @@
 import argparse
 import sys
 import json
+import time
+import logging
+
+logging.disable()
 
 import deepspeech
 from tqdm import tqdm
