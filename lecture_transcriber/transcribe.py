@@ -125,7 +125,7 @@ def main():
                 sentences.append(segments[0])
                 metadata = deepspeech_model.finishStreamWithMetadata(stream)
                 words = words_from_metadata(metadata)
-                next = len(sum(segments[1:]).split()) + 2
+                next = len(" ".join(segments[1:]).split()) + 2
                 word = words[-next]
                 end_ms = metadata.items[-1].start_time * 1000
                 ms = abs(((word["start_time"] + word["duration"]) * 1000) - end_ms) + 200
@@ -137,7 +137,7 @@ def main():
                 len_output = len(output)
     
     print("Outputting transcription")
-    json.dump(transcriptions, args.output)
+    json.dump(sentences, args.output)
     
     print("Done!")
     
