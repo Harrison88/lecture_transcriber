@@ -80,32 +80,27 @@ def words_from_metadata(metadata):
     word = ""
     word_list = []
     word_start_time = 0
-    # Loop through each character
-    for i in range(0, metadata.num_items):
-        item = metadata.items[i]
-        # Append character to word if it's not a space
+
+    for index, item in enumerate(metadata.items):
         if item.character != " ":
             word = word + item.character
-        # Word boundary is either a space or the last character in the array
-        if item.character == " " or i == metadata.num_items - 1:
+
+        if item.character == " " or index == metadata.num_items - 1:
             word_duration = item.start_time - word_start_time
 
             if word_duration < 0:
                 word_duration = 0
 
-            each_word = dict()
-            each_word["word"] = word
-            each_word["start_time"] = word_start_time
-            each_word["duration"] = word_duration
-
+            each_word = {"word": word,
+                "start_time": word_start_time,
+                "duration": word_duration,
+            }
             word_list.append(each_word)
-            # Reset
+
             word = ""
             word_start_time = 0
-        else:
-            if len(word) == 1:
-                # Log the start time of the new word
-                word_start_time = item.start_time
+        elif len(word) == 1:
+            word_start_time = item.start_time
 
     return word_list
 
