@@ -4,3 +4,4 @@ audio/
 transcripts/
 __pycache__/
 lecture_transcriber.egg-info/
+dist/
