@@ -63,6 +63,10 @@ def parse_args():
     )
 
     parser.add_argument(
+        "--json", "-j", action="store_true", help="Output sentences as a JSON array"
+    )
+
+    parser.add_argument(
         "--no-split",
         action="store_true",
         help="Transcribe the audio file without splitting into segments",
@@ -150,7 +154,12 @@ def main():
                 len_output = len(output)
 
     print("Outputting transcription")
-    json.dump(sentences, args.output)
+    if args.json:
+        json.dump(sentences, args.output)
+    else:
+        args.output.write(" ".join(sentences))
+
+    args.output.close()
 
     print("Done!")
 
