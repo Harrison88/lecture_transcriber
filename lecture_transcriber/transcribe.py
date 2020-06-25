@@ -130,7 +130,12 @@ def main():
     chunks = preprocess_audio.RewindableChunker(audiosegment)
     sentences = []
     len_output = 0
-    for chunk in tqdm(chunks):
+    reached_seconds = 0
+    progress_bar = tqdm(
+        total=int(audiosegment.duration_seconds),
+        unit="a_sec",
+        desc="Transcribing")
+    for chunk in chunks:
         data = preprocess_audio.audiosegments_to_np([chunk])
         deepspeech_model.feedAudioContent(stream, data[0])
         output = deepspeech_model.intermediateDecode(stream).split()
@@ -146,12 +151,18 @@ def main():
                 ms = (
                     abs(((word["start_time"] + word["duration"]) * 1000) - end_ms) + 200
                 )
-
+                current_seconds = chunks.current_time / 1000
+                if current_seconds > reached_seconds:
+                    progress_bar.update(current_seconds - reached_seconds)
+                    progress_bar.refresh()
+                    reached_seconds = current_seconds
                 chunks.rewind(int(ms))
                 stream = deepspeech_model.createStream()
                 len_output = 0
             else:
                 len_output = len(output)
+
+    progress_bar.close()
 
     print("Outputting transcription")
     if args.json:
