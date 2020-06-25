@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lecture_transcriber"
-version = "0.2.1"
+version = "0.3.0"
 description = "A DeepSpeech-based transcriber using DeepSegment to separate sentences in a long audio recording."
 authors = ["Harrison Morgan <harrison.morgan@gmail.com>"]
 license = "bsd-3-clause"
