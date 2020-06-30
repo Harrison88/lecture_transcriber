@@ -1,5 +1,6 @@
 from pathlib import Path
 import argparse
+import logging
 
 import pydub
 import numpy as np
@@ -8,6 +9,7 @@ from tqdm import tqdm
 import subprocess
 import shlex
 
+logger = logging.getLogger(__name__)
 
 class RewindableChunker:
     def __init__(self, audiosegment, size=50):
@@ -101,10 +103,10 @@ def determine_silence_threshold(audio):
     average = audio.dBFS
     loudest = max(samples)
 
-    print(f"Audio loudness stats: {silence = }; {average = }; {loudest = }")
+    logger.debug(f"Audio loudness stats: {silence = }; {average = }; {loudest = }")
 
     threshold = silence - ((silence - average) * 0.15)
-    print(f"Threshold calculated to be {threshold} dBFS")
+    logger.debug(f"Threshold calculated to be {threshold} dBFS")
 
     return threshold
 
@@ -132,14 +134,14 @@ def get_audiosegment(audio_filepath, desired_framerate):
     audio_file = Path(audio_filepath)
     audio = pydub.AudioSegment.from_file(str(audio_filepath))
 
-    print("Audio duration before framerate change:", audio.duration_seconds)
+    logger.debug(f"Audio duration before framerate change: {audio.duration_seconds}")
     data = convert_samplerate(audio, desired_framerate)
     del audio
     audio = pydub.AudioSegment(
         data, sample_width=2, channels=1, frame_rate=desired_framerate
     )
     audio_seconds = audio.duration_seconds
-    print("Audio duration after change:", audio_seconds)
+    logger.debug(f"Audio duration after change: {audio_seconds}")
 
     return audio, audio_seconds
 
@@ -172,9 +174,9 @@ def main():
     largest = max(durations)
     smallest = min(durations)
     average = sum(durations) / len(durations)
-    print(f"{largest=}; {smallest=}; {average=}")
-    print(
-        "Duration before split:", audio_seconds, "Duration after split:", sum(durations)
+    logger.debug(f"{largest=}; {smallest=}; {average=}")
+    logger.debug(
+        f"Duration before split: {audio_seconds}, Duration after split: {sum(durations)}"
     )
     output_dir = Path(args.output_dir)
     for index, audio_segment in tqdm(enumerate(split_audio)):

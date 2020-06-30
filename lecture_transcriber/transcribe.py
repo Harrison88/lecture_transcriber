@@ -4,7 +4,7 @@ import json
 import time
 import logging
 
-logging.disable()
+logger = logging.getLogger(__name__)
 
 import deepspeech
 from tqdm import tqdm
@@ -120,7 +120,7 @@ def words_from_metadata(metadata):
 def main():
     args = parse_args()
 
-    print("Loading DeepSpeech Model")
+    logger.info("Loading DeepSpeech Model")
     deepspeech_model = create_deepspeech_model(args)
 
     stream = deepspeech_model.createStream()
@@ -142,6 +142,7 @@ def main():
         if len(output) > len_output and len(output) > 1:
             segments = segmenter.segment(" ".join(output[:-1]))
             if len(segments) > 1:
+                logger.debug(f"Adding sentence starting with {' '.join(output[:3])}...")
                 sentences.append(segments[0])
                 metadata = deepspeech_model.finishStreamWithMetadata(stream)
                 words = words_from_metadata(metadata)
@@ -164,7 +165,7 @@ def main():
 
     progress_bar.close()
 
-    print("Outputting transcription")
+    logger.info(f"Outputting transcription as {'JSON' if args.json else 'text'}")
     if args.json:
         json.dump(sentences, args.output)
     else:
@@ -172,7 +173,7 @@ def main():
 
     args.output.close()
 
-    print("Done!")
+    logger.info("Transcription completed successfully")
 
 
 if __name__ == "__main__":
