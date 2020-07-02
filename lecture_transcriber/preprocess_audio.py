@@ -27,9 +27,8 @@ def convert_samplerate(audio, desired_sample_rate):
     return output.stdout
 
 
-def get_audiosegment(audio_filepath, desired_framerate):
-    audio_file = Path(audio_filepath)
-    audio = pydub.AudioSegment.from_file(str(audio_filepath))
+def get_audiosegment(audio_file, desired_framerate, format="mp3"):
+    audio = pydub.AudioSegment.from_file(audio_file, format=format)
 
     logger.debug(f"Audio duration before framerate change: {audio.duration_seconds}")
     data = convert_samplerate(audio, desired_framerate)
